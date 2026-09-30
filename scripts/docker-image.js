@@ -8,6 +8,8 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const PACKAGE_JSON_PATH = path.join(ROOT_DIR, 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'));
 
+const DEFAULT_PUSH_PLATFORMS = 'linux/amd64,linux/arm64';
+
 function printHelp() {
   console.log(`Usage:
   node scripts/docker-image.js <command> [options]
@@ -24,7 +26,9 @@ Options:
   --tag <tag>               Primary tag
                             default: package.json version (${packageJson.version})
   --extra-tags <list>       Extra tags separated by commas
-  --platform <platform>     Forwarded to docker build --platform
+  --platform <platform>     Comma separated target platforms
+                            default for build: host platform
+                            default for push: ${DEFAULT_PUSH_PLATFORMS}
   --dockerfile <path>       Dockerfile path
                             default: Dockerfile
   --context <path>          Docker build context
@@ -33,9 +37,16 @@ Options:
 Examples:
   node scripts/docker-image.js check
   node scripts/docker-image.js build --tag latest
+  node scripts/docker-image.js build --platform linux/arm64 --tag arm64-trial
   node scripts/docker-image.js push --tag ${packageJson.version}
   npm run docker:image:push -- --tag ${packageJson.version}
-  npm run docker:image:push:dev`);
+  npm run docker:image:push:dev
+
+Notes:
+  Both commands go through docker buildx. push builds and pushes every tag in a
+  single invocation, so "${DEFAULT_PUSH_PLATFORMS}" produces one multi-arch
+  manifest list instead of two single-platform images that overwrite each other.
+  build uses --load, which only supports a single platform.`);
 }
 
 function fail(message) {
@@ -91,7 +102,14 @@ function uniqueTags(tags) {
   return [...new Set(tags.filter(Boolean))];
 }
 
-function resolveConfig(rawOptions) {
+function parsePlatforms(value) {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function resolveConfig(command, rawOptions) {
   const image = rawOptions.image || process.env.DOCKER_IMAGE || 'docker.io/jqknono/weread-challenge';
   const tag = rawOptions.tag || process.env.DOCKER_TAG || packageJson.version;
   const extraTags = uniqueTags(
@@ -102,7 +120,10 @@ function resolveConfig(rawOptions) {
   );
   const dockerfile = path.resolve(ROOT_DIR, rawOptions.dockerfile || process.env.DOCKERFILE || 'Dockerfile');
   const context = path.resolve(ROOT_DIR, rawOptions.context || process.env.DOCKER_CONTEXT || '.');
-  const platform = rawOptions.platform || process.env.DOCKER_PLATFORM || '';
+  // push defaults to both architectures so a release never silently downgrades a
+  // multi-arch tag to a single-platform image; build stays on the host platform.
+  const defaultPlatform = command === 'push' ? DEFAULT_PUSH_PLATFORMS : '';
+  const platform = rawOptions.platform || process.env.DOCKER_PLATFORM || defaultPlatform;
 
   if (!image) {
     fail('Docker image name is required');
@@ -123,7 +144,8 @@ function resolveConfig(rawOptions) {
     extraTags: extraTags.filter((item) => item !== tag),
     dockerfile,
     context,
-    platform
+    platform,
+    platforms: parsePlatforms(platform)
   };
 }
 
@@ -141,8 +163,22 @@ function ensureDockerAvailable() {
   }
 }
 
-function buildCommandArgs(config) {
-  const args = ['build'];
+function ensureBuildxAvailable() {
+  const result = spawnSync('docker', ['buildx', 'version'], {
+    cwd: ROOT_DIR,
+    encoding: 'utf8',
+    stdio: 'pipe'
+  });
+  if (result.error) {
+    fail(`Failed to run docker buildx: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    fail((result.stderr || result.stdout || 'docker buildx version failed').trim());
+  }
+}
+
+function buildxCommandArgs(config) {
+  const args = ['buildx', 'build'];
   if (config.platform) {
     args.push('--platform', config.platform);
   }
@@ -150,6 +186,9 @@ function buildCommandArgs(config) {
   config.buildTags.forEach((tag) => {
     args.push('-t', `${config.image}:${tag}`);
   });
+  // A single buildx invocation pushes every tag as one manifest list; pushing
+  // tags one by one would publish separate single-platform images.
+  args.push(config.command === 'push' ? '--push' : '--load');
   args.push(config.context);
   return args;
 }
@@ -163,7 +202,7 @@ function printConfig(config) {
   console.log(`push tags: ${config.pushTags.length ? config.pushTags.join(', ') : '(none)'}`);
   console.log(`dockerfile: ${config.dockerfile}`);
   console.log(`context: ${config.context}`);
-  console.log(`platform: ${config.platform || '(default)'}`);
+  console.log(`platform: ${config.platform || '(host default)'}`);
 }
 
 function resolvePushTags(config) {
@@ -197,11 +236,20 @@ function main() {
     return;
   }
 
-  const config = resolveConfig(options);
+  const config = resolveConfig(command, options);
   config.command = command;
   config.pushTags = resolvePushTags(config);
   config.buildTags = command === 'push' ? config.pushTags : uniqueTags([config.tag, ...config.extraTags]);
+
+  // Validate the invocation before touching docker, so a bad platform request
+  // reports the actual problem instead of "docker is not available".
+  if (command === 'build' && config.platforms.length > 1) {
+    fail(`build cannot --load a multi-platform image (${config.platform}); `
+      + 'pass a single --platform for a local build, or use "push" to publish all platforms at once');
+  }
+
   ensureDockerAvailable();
+  ensureBuildxAvailable();
   printConfig(config);
 
   if (command === 'check') {
@@ -209,19 +257,9 @@ function main() {
     return;
   }
 
-  const buildArgs = buildCommandArgs(config);
+  const buildArgs = buildxCommandArgs(config);
   console.log(`running: docker ${buildArgs.join(' ')}`);
   runCommand('docker', buildArgs);
-
-  if (command !== 'push') {
-    return;
-  }
-
-  config.pushTags.forEach((tag) => {
-    const pushArgs = ['push', `${config.image}:${tag}`];
-    console.log(`running: docker ${pushArgs.join(' ')}`);
-    runCommand('docker', pushArgs);
-  });
 }
 
 main();
