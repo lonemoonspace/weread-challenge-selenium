@@ -63,8 +63,7 @@ docker compose up -d
 - 支持邮件通知
 - 支持 Bark 推送通知
 - 多平台支持: `linux | windows | macos`
-- 支持架构: `amd64`
-<!-- - 多架构支持: `amd64 | arm64` -->
+- 支持架构: `amd64 | arm64`
 - 支持浏览器: `chrome | MicrosoftEdge | firefox | safari`
 - 支持多用户
 - 异常时强制刷新
@@ -510,20 +509,27 @@ mkdir -p $HOME/weread-challenge/$WEREAD_USER2/.weread
 | `BARK_SERVER`           | `https://api.day.app`                                     | -                                     | Bark 服务器地址                                                                                 |
 | `WEREAD_AGREE_TERMS`    | `true`                                                    | `true,false`                          | 隐私同意条款                                                                                    |
 
-<!-- ## 容器多架构支持
+## 容器多架构支持
 
 支持 `linux/amd64`,`linux/arm64`, 支持树莓派等开发板.
 
-> 注意: 本工具镜像支持 `arm64`, 但`selenium/standalone-chrome:4.26`镜像未编译 `arm64`, 需自行构建. 因此`arm64`架构不支持使用`docker-compose`方式运行.
-> 如需使用`arm64`, 需自行构建`arm64`的`selenium`, 或使用`docker`方式运行, 连接运行在`amd64`的`selenium`.
+> 注意: `docker-compose.yml` 使用的 `selenium/standalone-chromium` 已发布 `linux/arm64`,
+> 因此 `arm64` 可以直接使用 `docker-compose` 方式运行.
+> 早期文档提到的 `selenium/standalone-chrome:4.26` 未编译 `arm64`, 该限制已不再存在.
 
 ```bash
+# 方式一: 使用仓库脚本, push 默认按 linux/amd64,linux/arm64 发布
+npm run docker:image:push -- --tag latest
+
+# 只构建本机 arm64 试用镜像
+node scripts/docker-image.js build --platform linux/arm64 --tag arm64-trial
+
+# 方式二: 手工使用 buildx
 docker buildx create --name weread-challenge
 docker buildx use weread-challenge
 docker buildx inspect --bootstrap
-docker buildx build --platform linux/amd64,linux/arm64 -t jqknono/weread-challenge:base -f Dockerfile.base --push .
-docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/jqknono/weread-challenge:latest -f Dockerfile.quick --push .
-``` -->
+docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/jqknono/weread-challenge:latest -f Dockerfile --push .
+```
 
 ## 注意事项
 
