@@ -1079,11 +1079,14 @@ async function sendMail(subject, text, filePaths = [], options = {}) {
   }
 }
 
+// ntfy 的 JSON 发布接口（POST /）将 priority 定义为 int，字符串别名只对 X-Priority 请求头有效，
+// 写进 JSON body 会导致整个负载解析失败（400 {"code":40024,"error":"invalid request: request body must be valid JSON"}），
+// 因此这里必须映射为 1-5 的数字
 const NTFY_LEVEL_PRIORITY = {
-  passive: "low",
-  active: "default",
-  timeSensitive: "high",
-  critical: "urgent",
+  passive: 2,
+  active: 3,
+  timeSensitive: 4,
+  critical: 5,
 };
 const NTFY_SOUND_TAGS = {
   alarm: "rotating_light",
@@ -1091,7 +1094,6 @@ const NTFY_SOUND_TAGS = {
   success: "tada",
   beginning: "rocket",
 };
-const NTFY_PRIORITY_ALIASES = ["min", "low", "default", "high", "urgent", "max"];
 const NTFY_TOPIC_PATTERN = /^[-_A-Za-z0-9]{1,64}$/;
 const NOTIFY_REQUEST_TIMEOUT_MS = 15000;
 
@@ -1219,13 +1221,25 @@ async function sendBark(title, body, options = {}) {
   return false;
 }
 
-function normalizeNtfyPriority(rawValue, fallback = "default") {
+// 统一把优先级归一化为 1-5 的数字；ntfy 的 JSON body 只接受数字形式的 priority
+const NTFY_PRIORITY_ALIAS_VALUES = {
+  min: 1,
+  low: 2,
+  default: 3,
+  high: 4,
+  urgent: 5,
+  max: 5,
+};
+const NTFY_PRIORITY_ALIASES = Object.keys(NTFY_PRIORITY_ALIAS_VALUES);
+const NTFY_DEFAULT_PRIORITY = 3;
+
+function normalizeNtfyPriority(rawValue, fallback = NTFY_DEFAULT_PRIORITY) {
   const value = String(rawValue === undefined || rawValue === null ? "" : rawValue).trim().toLowerCase();
   if (!value) {
     return fallback;
   }
-  if (NTFY_PRIORITY_ALIASES.includes(value)) {
-    return value;
+  if (Object.prototype.hasOwnProperty.call(NTFY_PRIORITY_ALIAS_VALUES, value)) {
+    return NTFY_PRIORITY_ALIAS_VALUES[value];
   }
   const numeric = Number.parseInt(value, 10);
   if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 5) {
@@ -1242,7 +1256,8 @@ function resolveNtfyPriority(level, overridePriority) {
   if (NTFY_PRIORITY) {
     return normalizeNtfyPriority(NTFY_PRIORITY);
   }
-  return normalizeNtfyPriority(NTFY_LEVEL_PRIORITY[level] || "default");
+  const mapped = NTFY_LEVEL_PRIORITY[level];
+  return mapped === undefined ? NTFY_DEFAULT_PRIORITY : mapped;
 }
 
 function resolveNtfyTags(sound, overrideTags) {

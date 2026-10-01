@@ -412,9 +412,11 @@ npx weread-selenium-cli run
 
 | 事件 | Bark level | ntfy 优先级 | 默认 ntfy 标签 |
 | --- | --- | --- | --- |
-| 脚本启动 / 登录成功 / 阅读完成 | `active` | `default`（3） | `rocket` / `bell` / `tada` |
-| 登录失败 / 运行报错 | `critical` | `urgent`（5） | `rotating_light` |
-| 检测到登录二维码 | `active` | `default`（3） | `bell` |
+| 脚本启动 / 登录成功 / 阅读完成 | `active` | `3`（default） | `rocket` / `bell` / `tada` |
+| 登录失败 / 运行报错 | `critical` | `5`（urgent） | `rotating_light` |
+| 检测到登录二维码 | `active` | `3`（default） | `bell` |
+
+> ntfy 的 JSON 发布接口只接受 1-5 的数字优先级，本项目在发送前会把 `min/low/default/high/urgent/max` 别名与 `NTFY_PRIORITY` 配置统一归一化为数字，避免旧版本中字符串别名导致的 `400 {"code":40024}` 错误。
 
 登录二维码推送时，ntfy 通知会带上「打开登录链接」和「查看二维码」两个按钮，点击通知本身也会直接打开登录链接。
 
@@ -605,7 +607,7 @@ mkdir -p $HOME/weread-challenge/$WEREAD_USER2/.weread
 | `NTFY_TOKEN`            | ""                                                        | -                                     | ntfy Access Token，与用户名密码二选一                                                            |
 | `NTFY_USERNAME`         | ""                                                        | -                                     | ntfy Basic Auth 用户名                                                                          |
 | `NTFY_PASSWORD`         | ""                                                        | -                                     | ntfy Basic Auth 密码                                                                            |
-| `NTFY_PRIORITY`         | ""                                                        | `1-5,min,low,default,high,urgent`     | 覆盖 ntfy 默认优先级映射                                                                        |
+| `NTFY_PRIORITY`         | ""                                                        | `1-5,min,low,default,high,urgent`     | 覆盖 ntfy 默认优先级映射，发送前统一归一化为 1-5 数字                                           |
 | `NTFY_TAGS`             | ""                                                        | -                                     | 覆盖 ntfy 默认标签，逗号分隔                                                                     |
 | `WEREAD_AGREE_TERMS`    | `true`                                                    | `true,false`                          | 隐私同意条款                                                                                    |
 

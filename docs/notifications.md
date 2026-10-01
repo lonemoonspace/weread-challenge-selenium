@@ -26,7 +26,7 @@
 | `body` | `body` | `message` |
 | `subtitle` | `subtitle` | 并入 `title` |
 | `sound` | `sound` | 映射为 `tags`（`alarm→rotating_light`、`birdsong→bell`、`success→tada`、`beginning→rocket`） |
-| `level` | `level` | 映射为 `priority`（`passive→low`、`active→default`、`timeSensitive→high`、`critical→urgent`） |
+| `level` | `level` | 映射为数字 `priority`（`passive→2`、`active→3`、`timeSensitive→4`、`critical→5`；ntfy JSON 接口只接受 1-5 数字，字符串别名会导致 40024） |
 | `url` | `url` | `click` |
 | `image` | `image` | `attach`（外部图片 URL） |
 | `group` | `group` | 忽略（ntfy 无分组概念） |
@@ -38,7 +38,7 @@
 
 | 环境变量 | 作用 | 取值 |
 | --- | --- | --- |
-| `NTFY_PRIORITY` | 覆盖 level 到优先级的默认映射 | `1-5` 或 `min,low,default,high,urgent,max` |
+| `NTFY_PRIORITY` | 覆盖 level 到优先级的默认映射 | `1-5` 或 `min,low,default,high,urgent,max`（发送前统一归一化为 1-5 数字） |
 | `NTFY_TAGS` | 覆盖 sound 到标签的默认映射 | 逗号分隔的标签列表 |
 | `NTFY_TOKEN` | ntfy Access Token 认证 | `Authorization: Bearer <token>` |
 | `NTFY_USERNAME` + `NTFY_PASSWORD` | ntfy Basic Auth 认证 | `Authorization: Basic <base64>`，仅在未配置 Token 时生效 |

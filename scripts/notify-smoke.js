@@ -138,7 +138,7 @@ async function main() {
         topic: "weread_smoke_topic",
         title: "微信读书挑战 · 项目停滞",
         message: "发生错误：超时",
-        priority: "urgent",
+        priority: 5,
         tags: ["rotating_light"],
         click: "https://weread.qq.com/",
         attach: "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=abc",
@@ -178,6 +178,25 @@ async function main() {
       const payload = parseBody(mock.requests[0]);
       assert.strictEqual(payload.priority, 5);
       assert.deepStrictEqual(payload.tags, ["book", "heavy_check_mark"]);
+
+      // 字符串别名必须归一化为数字：ntfy JSON 接口的 priority 是 int，
+      // 传字符串会得到 400 {"code":40024,"error":"invalid request: request body must be valid JSON"}
+      setRuntimeConfigFromEnv({
+        NTFY_TOPIC: "weread_smoke_topic",
+        NTFY_SERVER: mock.baseUrl,
+        NTFY_PRIORITY: "urgent",
+      });
+      await sendNtfy("标题", "正文", { level: "active", sound: "birdsong" });
+      assert.strictEqual(parseBody(mock.requests[1]).priority, 5);
+
+      setRuntimeConfigFromEnv({
+        NTFY_TOPIC: "weread_smoke_topic",
+        NTFY_SERVER: mock.baseUrl,
+      });
+      await sendNtfy("标题", "正文", { level: "active", sound: "birdsong" });
+      assert.strictEqual(parseBody(mock.requests[2]).priority, 3);
+      await sendNtfy("标题", "正文", { level: "critical", sound: "alarm" });
+      assert.strictEqual(parseBody(mock.requests[3]).priority, 5);
     });
 
     await scenario("非法 ntfy 主题直接拦截且不发起请求", async () => {
