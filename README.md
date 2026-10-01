@@ -433,6 +433,9 @@ npx weread-selenium-cli run
 - 自建服务必须能通过 HTTPS 访问，且证书有效；自签证书会因 Node 默认校验证书而报 `unable to verify the issuer`，请用 Let's Encrypt 等受信任证书
 - 若反向代理把 ntfy 挂在子路径（如 `https://example.com/ntfy`），`NTFY_SERVER` 需带上该子路径
 - 若服务端开启了鉴权（`auth-default-access` 为 `deny-all` 等），需要同时配置 `NTFY_TOKEN`，或 `NTFY_USERNAME` + `NTFY_PASSWORD`
+  - 典型症状：发布时返回 `403 {"code":40301,"error":"forbidden"}`，就是 ACL 拒绝了匿名访问，必须补 Token
+  - `/v1/config` 里的 `enable_login` / `require_login` **不代表**匿名能否发布，判断权限要看 `/v1/account` 或直接试发一条
+- 服务端建议设置 `base-url: "https://你的域名"`，并在反向代理/Cloudflare 后面开启 `behind-proxy: true`，否则所有访客会被当成同一个 IP 计入限流
 - 主题名不能与 ntfy 保留路径重名（`docs`、`static`、`file`、`app`、`metrics`、`account`、`settings`、`signup`、`login`、`v1`）
 - 未开启鉴权的服务器对公网开放：主题名等价于密码，务必使用随机后缀，避免被他人猜中订阅或投递
 - Android App 需先添加自建服务器：设置 → `Manage users` → 添加服务器地址并登录（若需要），再订阅 `NTFY_TOPIC` 对应的主题
