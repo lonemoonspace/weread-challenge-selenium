@@ -2,6 +2,10 @@
 
 只为便宜一点买微信读书会员。
 
+> 这是 [jqknono/weread-challenge-selenium](https://github.com/jqknono/weread-challenge-selenium)
+> 的个人分支：**只构建并发布 `linux/arm64`**（树莓派等 ARM 开发板），镜像发布在
+> `lonemoonspace/weread-challenge`。需要 `amd64` 请使用上游仓库。
+
 ![只为便宜一点买微信读书会员](https://img1.techfetch.dev/blog/202412261741639.gif)
 
 ## 快速开始
@@ -11,7 +15,7 @@
 mkdir -p $HOME/weread-challenge && cd $HOME/weread-challenge
 
 # 下载配置文件
-wget https://raw.githubusercontent.com/jqknono/weread-challenge-selenium/main/docker-compose.yml
+wget https://raw.githubusercontent.com/lonemoonspace/weread-challenge-selenium/main/docker-compose.yml
 
 # 启动服务
 docker compose up -d
@@ -63,7 +67,7 @@ docker compose up -d
 - 支持邮件通知
 - 支持 Bark 推送通知
 - 多平台支持: `linux | windows | macos`
-- 支持架构: `amd64 | arm64`
+- 支持架构: `arm64`
 - 支持浏览器: `chrome | MicrosoftEdge | firefox | safari`
 - 支持多用户
 - 异常时强制刷新
@@ -155,7 +159,7 @@ npm run start
 ```yaml
 services:
   app:
-    image: docker.io/jqknono/weread-challenge:latest
+    image: docker.io/lonemoonspace/weread-challenge:latest
     pull_policy: always
     environment:
       - WEREAD_REMOTE_BROWSER=http://selenium:4444
@@ -225,14 +229,14 @@ docker run --rm --name user-read \
   -v $HOME/weread-challenge/user/.weread:/app/.weread \
   -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 \
   -e WEREAD_DURATION=68 \
-  docker.io/jqknono/weread-challenge:latest
+  docker.io/lonemoonspace/weread-challenge:latest
 
 # 添加第二个用户
 docker run --rm --name user2-read \
   -v $HOME/weread-challenge/user2/.weread:/app/.weread \
   -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 \
   -e WEREAD_DURATION=68 \
-  docker.io/jqknono/weread-challenge:latest
+  docker.io/lonemoonspace/weread-challenge:latest
 ```
 
 首次启动后，需要微信扫描二维码登录，二维码保存在 `./.weread/login.png`
@@ -253,7 +257,7 @@ cd $WORKDIR
 cat > $WORKDIR/docker-compose.yml <<EOF
 services:
   app:
-    image: docker.io/jqknono/weread-challenge:latest
+    image: docker.io/lonemoonspace/weread-challenge:latest
     pull_policy: always
     environment:
       - WEREAD_REMOTE_BROWSER=http://selenium:4444
@@ -313,17 +317,17 @@ WEREAD_USER="user"
 mkdir -p $HOME/weread-challenge/$WEREAD_USER/.weread
 # 首次启动后, 需微信扫描二维码登录, 二维码保存在 $HOME/weread-challenge/$WEREAD_USER/.weread/login.png
 # 每隔6个小时, 阅读68分钟
-(crontab -l 2>/dev/null; echo "00 */6 * * * docker run --rm --name ${WEREAD_USER}-read -v $HOME/weread-challenge/${WEREAD_USER}/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=68 -e WEREAD_USER=${WEREAD_USER} docker.io/jqknono/weread-challenge:latest") | crontab -
+(crontab -l 2>/dev/null; echo "00 */6 * * * docker run --rm --name ${WEREAD_USER}-read -v $HOME/weread-challenge/${WEREAD_USER}/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=68 -e WEREAD_USER=${WEREAD_USER} docker.io/lonemoonspace/weread-challenge:latest") | crontab -
 ```
 
 crontab 示例：
 
 ```bash
-00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user1@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=weread-challege@outlook.com docker.io/jqknono/weread-challenge:latest
+00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user1@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=weread-challege@outlook.com docker.io/lonemoonspace/weread-challenge:latest
 
-00 01 * * * docker run --rm --name user2-read -v /home/test/weread-challenge/user2/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user2 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user2@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=weread-challege@outlook.com docker.io/jqknono/weread-challenge:latest
+00 01 * * * docker run --rm --name user2-read -v /home/test/weread-challenge/user2/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user2 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user2@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=weread-challege@outlook.com docker.io/lonemoonspace/weread-challenge:latest
 
-00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e BARK_KEY=your-bark-key-here docker.io/jqknono/weread-challenge:latest
+00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e BARK_KEY=your-bark-key-here docker.io/lonemoonspace/weread-challenge:latest
 ```
 
 ## Windows
@@ -399,14 +403,14 @@ docker run --rm --name user-read \
   -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 \
   -e WEREAD_DURATION=180 \
   -e BARK_KEY="your-bark-key-here" \
-  docker.io/jqknono/weread-challenge:latest
+  docker.io/lonemoonspace/weread-challenge:latest
 ```
 
 #### Crontab 定时任务示例
 
 ```bash
 # Bark推送示例
-00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e BARK_KEY=your-bark-key-here docker.io/jqknono/weread-challenge:latest
+00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e BARK_KEY=your-bark-key-here docker.io/lonemoonspace/weread-challenge:latest
 ```
 
 ### 注意事项
@@ -482,8 +486,8 @@ mkdir -p $HOME/weread-challenge/$WEREAD_USER2/.weread
 # 首次启动后需微信扫描二维码登录，二维码保存在：
 # $HOME/weread-challenge/${WEREAD_USER1}/.weread/login.png
 # $HOME/weread-challenge/${WEREAD_USER2}/.weread/login.png
-(crontab -l 2>/dev/null; echo "00 */6 * * * docker run --rm --name ${WEREAD_USER1}-read -v $HOME/weread-challenge/${WEREAD_USER1}/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=68 -e WEREAD_USER=${WEREAD_USER1} docker.io/jqknono/weread-challenge:latest") | crontab -
-(crontab -l 2>/dev/null; echo "00 */6 * * * docker run --rm --name ${WEREAD_USER2}-read -v $HOME/weread-challenge/${WEREAD_USER2}/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=68 -e WEREAD_USER=${WEREAD_USER2} docker.io/jqknono/weread-challenge:latest") | crontab -
+(crontab -l 2>/dev/null; echo "00 */6 * * * docker run --rm --name ${WEREAD_USER1}-read -v $HOME/weread-challenge/${WEREAD_USER1}/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=68 -e WEREAD_USER=${WEREAD_USER1} docker.io/lonemoonspace/weread-challenge:latest") | crontab -
+(crontab -l 2>/dev/null; echo "00 */6 * * * docker run --rm --name ${WEREAD_USER2}-read -v $HOME/weread-challenge/${WEREAD_USER2}/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=68 -e WEREAD_USER=${WEREAD_USER2} docker.io/lonemoonspace/weread-challenge:latest") | crontab -
 ```
 
 ## 可配置项
@@ -509,27 +513,28 @@ mkdir -p $HOME/weread-challenge/$WEREAD_USER2/.weread
 | `BARK_SERVER`           | `https://api.day.app`                                     | -                                     | Bark 服务器地址                                                                                 |
 | `WEREAD_AGREE_TERMS`    | `true`                                                    | `true,false`                          | 隐私同意条款                                                                                    |
 
-## 容器多架构支持
+## 容器架构支持
 
-支持 `linux/amd64`,`linux/arm64`, 支持树莓派等开发板.
+本仓库**只构建并发布 `linux/arm64`**（树莓派等 ARM 开发板）。`amd64` 不再构建，也不会推到镜像仓库；
+需要 `amd64` 请使用上游仓库。
 
-> 注意: `docker-compose.yml` 使用的 `selenium/standalone-chromium` 已发布 `linux/arm64`,
-> 因此 `arm64` 可以直接使用 `docker-compose` 方式运行.
-> 早期文档提到的 `selenium/standalone-chrome:4.26` 未编译 `arm64`, 该限制已不再存在.
+`docker-compose.yml` 使用的 `selenium/standalone-chromium` 已提供 `linux/arm64`,
+所以 `arm64` 可以直接使用 `docker compose` 方式运行。
 
 ```bash
-# 方式一: 使用仓库脚本, push 默认按 linux/amd64,linux/arm64 发布
+# 发布 arm64 镜像, push 默认就是 linux/arm64
 npm run docker:image:push -- --tag latest
 
-# 只构建本机 arm64 试用镜像
-node scripts/docker-image.js build --platform linux/arm64 --tag arm64-trial
+# 只在本机构建, 不推送
+npm run docker:image:build
 
-# 方式二: 手工使用 buildx
-docker buildx create --name weread-challenge
-docker buildx use weread-challenge
-docker buildx inspect --bootstrap
-docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/jqknono/weread-challenge:latest -f Dockerfile --push .
+# 手工使用 buildx
+docker buildx build --platform linux/arm64 -t docker.io/lonemoonspace/weread-challenge:latest -f Dockerfile --push .
 ```
+
+> 在 `amd64` 机器上构建 `arm64` 镜像需要 QEMU/binfmt 模拟, 例如
+> `docker run --privileged --rm tonistiigi/binfmt --install arm64`; 在 ARM 设备或 GitHub Actions
+> 上不需要额外配置. 推送单平台镜像不要求 `docker-container` builder, 默认的 `docker` driver 即可.
 
 ## 注意事项
 
@@ -554,6 +559,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/jqknono/were
 ## 参考
 
 - npm 包: [weread-selenium-cli](https://www.npmjs.com/package/weread-selenium-cli)
-- 开源地址: [https://github.com/jqknono/weread-challenge-selenium](https://github.com/jqknono/weread-challenge-selenium)
+- 上游开源地址: [https://github.com/jqknono/weread-challenge-selenium](https://github.com/jqknono/weread-challenge-selenium)
+- 本分支(arm64): [https://github.com/lonemoonspace/weread-challenge-selenium](https://github.com/lonemoonspace/weread-challenge-selenium)
 - 统计: [https://weread-challenge.techfetch.dev](https://weread-challenge.techfetch.dev)
 - 文章来源: [https://blog.techfetch.dev](https://blog.techfetch.dev/blog/2024/12/05/%E5%BE%AE%E4%BF%A1%E8%AF%BB%E4%B9%A6%E8%87%AA%E5%8A%A8%E6%89%93%E5%8D%A1%E5%88%B7%E6%97%B6%E9%95%BF/)
