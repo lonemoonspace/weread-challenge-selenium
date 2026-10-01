@@ -18,6 +18,7 @@
     "dev": "WEREAD_REMOTE_BROWSER= node src/weread-challenge.js run",
     "debug": "DEBUG=true WEREAD_REMOTE_BROWSER= node src/weread-challenge.js run",
     "test:runtime": "node scripts/runtime-smoke.js all",
+    "test:notify": "node scripts/notify-smoke.js",
     "test:runtime:npx": "node scripts/runtime-smoke.js npx",
     "test:runtime:docker": "node scripts/runtime-smoke.js docker",
     "link:global": "npm link",

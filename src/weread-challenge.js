@@ -51,8 +51,15 @@ let ENABLE_EMAIL = false; // Enable email notifications
 let WEREAD_SCREENSHOT = true; // Reading期间是否每分钟截图
 let WEREAD_AGREE_TERMS = true; // Agree to terms
 let EMAIL_PORT = 465; // SMTP port number, default 465
-let BARK_KEY = ""; // Bark推送密钥
+let BARK_KEY = ""; // Bark推送密钥（iOS）
 let BARK_SERVER = "https://api.day.app"; // Bark服务器地址
+let NTFY_TOPIC = ""; // ntfy 主题，配置后启用 ntfy 推送（Android/iOS/桌面）
+let NTFY_SERVER = "https://ntfy.sh"; // ntfy 服务器地址，可指向自建服务
+let NTFY_TOKEN = ""; // ntfy Access Token，可选
+let NTFY_USERNAME = ""; // ntfy Basic Auth 用户名，可选
+let NTFY_PASSWORD = ""; // ntfy Basic Auth 密码，可选
+let NTFY_PRIORITY = ""; // ntfy 优先级覆盖：1-5 或 min|low|default|high|urgent
+let NTFY_TAGS = ""; // ntfy 标签覆盖，逗号分隔
 let WEREAD_DATA_DIR = ".weread"; // 默认数据目录
 let DEFAULT_BOOK_URL =
   "https://weread.qq.com/web/reader/276323e0813ab90a5g0144d7"; // 默认阅读链接
@@ -69,6 +76,13 @@ let DEFAULT_BOOK_URL =
 // EMAIL_TO
 // BARK_KEY
 // BARK_SERVER
+// NTFY_TOPIC
+// NTFY_SERVER
+// NTFY_TOKEN
+// NTFY_USERNAME
+// NTFY_PASSWORD
+// NTFY_PRIORITY
+// NTFY_TAGS
 // WEREAD_DATA_DIR
 // DEFAULT_BOOK_URL
 
@@ -91,6 +105,13 @@ const RUN_OPTION_SPECS = [
   { envKey: "EMAIL_PORT", flag: "email-port", type: "integer", description: "SMTP port." },
   { envKey: "BARK_KEY", flag: "bark-key", type: "string", description: "Bark notification key." },
   { envKey: "BARK_SERVER", flag: "bark-server", type: "string", description: "Bark server base URL." },
+  { envKey: "NTFY_TOPIC", flag: "ntfy-topic", type: "string", description: "ntfy topic; enables ntfy push notifications." },
+  { envKey: "NTFY_SERVER", flag: "ntfy-server", type: "string", description: "ntfy server base URL." },
+  { envKey: "NTFY_TOKEN", flag: "ntfy-token", type: "string", description: "ntfy access token." },
+  { envKey: "NTFY_USERNAME", flag: "ntfy-username", type: "string", description: "ntfy basic-auth username." },
+  { envKey: "NTFY_PASSWORD", flag: "ntfy-password", type: "string", description: "ntfy basic-auth password." },
+  { envKey: "NTFY_PRIORITY", flag: "ntfy-priority", type: "string", description: "ntfy priority override: 1-5 or min|low|default|high|urgent." },
+  { envKey: "NTFY_TAGS", flag: "ntfy-tags", type: "string", description: "ntfy tags override, comma separated." },
   { envKey: "WEREAD_DATA_DIR", flag: "weread-data-dir", type: "string", description: "Data directory for cookies, logs and screenshots." },
   { envKey: "DEFAULT_BOOK_URL", flag: "default-book-url", type: "string", description: "Fallback reading URL." },
 ];
@@ -167,6 +188,13 @@ function setRuntimeConfigFromEnv(env = process.env) {
     : parseIntegerValue(env.EMAIL_PORT, "email-port");
   BARK_KEY = env.BARK_KEY || "";
   BARK_SERVER = env.BARK_SERVER || "https://api.day.app";
+  NTFY_TOPIC = env.NTFY_TOPIC || "";
+  NTFY_SERVER = env.NTFY_SERVER || "https://ntfy.sh";
+  NTFY_TOKEN = env.NTFY_TOKEN || "";
+  NTFY_USERNAME = env.NTFY_USERNAME || "";
+  NTFY_PASSWORD = env.NTFY_PASSWORD || "";
+  NTFY_PRIORITY = env.NTFY_PRIORITY || "";
+  NTFY_TAGS = env.NTFY_TAGS || "";
   WEREAD_DATA_DIR = env.WEREAD_DATA_DIR || resolveDefaultDataDir();
   DEFAULT_BOOK_URL =
     env.DEFAULT_BOOK_URL ||
@@ -816,9 +844,9 @@ async function notifyLoginLink(loginUrl) {
 
   lastPushedLoginLink = loginUrl;
   const tasks = [];
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(loginUrl)}`;
 
-  if (BARK_KEY) {
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(loginUrl)}`;
+  if (isBarkEnabled()) {
     tasks.push(
       sendBark("微信读书挑战", "请扫码登录微信读书", {
         subtitle: "扫码登录",
@@ -827,6 +855,27 @@ async function notifyLoginLink(loginUrl) {
         level: "active",
         sound: "birdsong",
       })
+    );
+  }
+
+  if (isNtfyEnabled()) {
+    tasks.push(
+      sendNtfy(
+        "微信读书挑战",
+        `请扫码登录微信读书。\n\n登录链接：${loginUrl}\n二维码：${qrImageUrl}`,
+        {
+          subtitle: "扫码登录",
+          url: loginUrl,
+          image: qrImageUrl,
+          level: "active",
+          sound: "birdsong",
+          markdown: true,
+          actions: [
+            { action: "view", label: "打开登录链接", url: loginUrl, clear: false },
+            { action: "view", label: "查看二维码", url: qrImageUrl, clear: false },
+          ],
+        }
+      )
     );
   }
 
@@ -842,7 +891,7 @@ async function notifyLoginLink(loginUrl) {
   }
 
   if (!tasks.length) {
-    console.info("未启用登录链接推送（需要 BARK_KEY 或 ENABLE_EMAIL=true）");
+    console.info("未启用登录链接推送（需要 BARK_KEY、NTFY_TOPIC 或 ENABLE_EMAIL=true）");
     return;
   }
 
@@ -1030,6 +1079,108 @@ async function sendMail(subject, text, filePaths = [], options = {}) {
   }
 }
 
+const NTFY_LEVEL_PRIORITY = {
+  passive: "low",
+  active: "default",
+  timeSensitive: "high",
+  critical: "urgent",
+};
+const NTFY_SOUND_TAGS = {
+  alarm: "rotating_light",
+  birdsong: "bell",
+  success: "tada",
+  beginning: "rocket",
+};
+const NTFY_PRIORITY_ALIASES = ["min", "low", "default", "high", "urgent", "max"];
+const NTFY_TOPIC_PATTERN = /^[-_A-Za-z0-9]{1,64}$/;
+const NOTIFY_REQUEST_TIMEOUT_MS = 15000;
+
+// 统一的 JSON POST 请求，供各推送渠道复用
+function postJson(urlString, payload, extraHeaders = {}, timeoutMs = NOTIFY_REQUEST_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    let urlObj;
+    try {
+      urlObj = new URL(urlString);
+    } catch (error) {
+      resolve({ ok: false, status: 0, body: "", error: `invalid url: ${urlString}` });
+      return;
+    }
+
+    const httpModule = urlObj.protocol === "https:" ? https : http;
+    const jsonData = JSON.stringify(payload);
+    let settled = false;
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    let req;
+    try {
+      req = httpModule.request({
+        hostname: urlObj.hostname,
+        port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
+        path: `${urlObj.pathname}${urlObj.search}`,
+        method: "POST",
+        timeout: timeoutMs,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Length": Buffer.byteLength(jsonData),
+          "User-Agent": "WeRead-Tracker/1.0",
+          ...extraHeaders,
+        },
+      }, (res) => {
+        let responseData = "";
+        res.on("data", (chunk) => { responseData += chunk; });
+        res.on("end", () => {
+          finish({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            body: responseData,
+            error: "",
+          });
+        });
+      });
+    } catch (error) {
+      finish({ ok: false, status: 0, body: "", error: error.message });
+      return;
+    }
+
+    req.on("timeout", () => {
+      req.destroy();
+      finish({ ok: false, status: 0, body: "", error: `request timeout after ${timeoutMs}ms` });
+    });
+
+    req.on("error", (error) => {
+      finish({ ok: false, status: 0, body: "", error: error.message });
+    });
+
+    req.write(jsonData);
+    req.end();
+  });
+}
+
+function isBarkEnabled() {
+  return Boolean(BARK_KEY);
+}
+
+function isNtfyEnabled() {
+  return Boolean(NTFY_TOPIC);
+}
+
+function getEnabledNotificationChannels() {
+  const channels = [];
+  if (isBarkEnabled()) {
+    channels.push("bark");
+  }
+  if (isNtfyEnabled()) {
+    channels.push("ntfy");
+  }
+  return channels;
+}
+
 async function sendBark(title, body, options = {}) {
   if (!BARK_KEY) {
     console.info("Bark推送密钥未配置");
@@ -1053,50 +1204,166 @@ async function sendBark(title, body, options = {}) {
   if (url) payload.url = url;
   if (image) payload.image = image;
 
-  const jsonData = JSON.stringify(payload);
   console.info("发送Bark推送:", barkUrl);
 
-  try {
-    const httpModule = barkUrl.startsWith("https://") ? https : http;
-    const urlObj = new URL(barkUrl);
+  const result = await postJson(barkUrl, payload);
+  if (result.ok) {
+    console.info("Bark推送发送成功");
+    return true;
+  }
+  if (result.error) {
+    console.error("Bark推送请求错误:", result.error);
+  } else {
+    console.error(`Bark推送失败: ${result.status} - ${result.body}`);
+  }
+  return false;
+}
 
-    return new Promise((resolve) => {
-      const req = httpModule.request({
-        hostname: urlObj.hostname,
-        port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
-        path: urlObj.pathname,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Content-Length": Buffer.byteLength(jsonData),
-          "User-Agent": "WeRead-Tracker/1.0",
-        },
-      }, (res) => {
-        let responseData = "";
-        res.on("data", (chunk) => { responseData += chunk; });
-        res.on("end", () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            console.info("Bark推送发送成功");
-            resolve(true);
-          } else {
-            console.error(`Bark推送失败: ${res.statusCode} - ${responseData}`);
-            resolve(false);
-          }
-        });
-      });
+function normalizeNtfyPriority(rawValue, fallback = "default") {
+  const value = String(rawValue === undefined || rawValue === null ? "" : rawValue).trim().toLowerCase();
+  if (!value) {
+    return fallback;
+  }
+  if (NTFY_PRIORITY_ALIASES.includes(value)) {
+    return value;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 5) {
+    return numeric;
+  }
+  console.warn(`ntfy 优先级无效: ${rawValue}，回退为 ${fallback}`);
+  return fallback;
+}
 
-      req.on("error", (error) => {
-        console.error("Bark推送请求错误:", error.message);
-        resolve(false);
-      });
+function resolveNtfyPriority(level, overridePriority) {
+  if (overridePriority) {
+    return normalizeNtfyPriority(overridePriority);
+  }
+  if (NTFY_PRIORITY) {
+    return normalizeNtfyPriority(NTFY_PRIORITY);
+  }
+  return normalizeNtfyPriority(NTFY_LEVEL_PRIORITY[level] || "default");
+}
 
-      req.write(jsonData);
-      req.end();
-    });
-  } catch (error) {
-    console.error("Bark推送异常:", error);
+function resolveNtfyTags(sound, overrideTags) {
+  const rawTags = overrideTags || NTFY_TAGS;
+  if (rawTags) {
+    const list = Array.isArray(rawTags) ? rawTags : String(rawTags).split(",");
+    return list.map((tag) => String(tag).trim()).filter(Boolean);
+  }
+  const mappedTag = NTFY_SOUND_TAGS[sound];
+  return mappedTag ? [mappedTag] : [];
+}
+
+function getNtfyAuthHeaders() {
+  if (NTFY_TOKEN) {
+    return { Authorization: `Bearer ${NTFY_TOKEN}` };
+  }
+  if (NTFY_USERNAME) {
+    const credentials = Buffer.from(`${NTFY_USERNAME}:${NTFY_PASSWORD}`, "utf8").toString("base64");
+    return { Authorization: `Basic ${credentials}` };
+  }
+  return {};
+}
+
+function buildNtfyPublishUrl(server = NTFY_SERVER) {
+  const base = String(server || "https://ntfy.sh").trim().replace(/\/+$/, "");
+  return `${base}/`;
+}
+
+async function sendNtfy(title, body, options = {}) {
+  if (!NTFY_TOPIC) {
+    console.info("ntfy 主题未配置");
     return false;
   }
+
+  // ntfy 的 topic 等价于密码，只允许字母、数字、下划线与短横线
+  if (!NTFY_TOPIC_PATTERN.test(NTFY_TOPIC)) {
+    console.error(`ntfy 主题不合法: ${NTFY_TOPIC}（仅支持字母、数字、下划线与短横线，且不超过 64 个字符）`);
+    return false;
+  }
+
+  const {
+    subtitle = "",
+    sound = "alarm",
+    icon = "",
+    url = "",
+    image = "",
+    level = "active",
+    priority = "",
+    tags = "",
+    markdown = false,
+    actions = [],
+  } = options;
+
+  const payload = {
+    topic: NTFY_TOPIC,
+    message: body,
+    priority: resolveNtfyPriority(level, priority),
+  };
+
+  const titleText = subtitle ? `${title} · ${subtitle}` : title;
+  if (titleText) {
+    payload.title = titleText;
+  }
+
+  const tagList = resolveNtfyTags(sound, tags);
+  if (tagList.length) {
+    payload.tags = tagList;
+  }
+
+  if (url) {
+    payload.click = url;
+  }
+  if (image) {
+    payload.attach = image;
+  }
+  if (icon) {
+    payload.icon = icon;
+  }
+  if (markdown) {
+    payload.markdown = true;
+  }
+  if (Array.isArray(actions) && actions.length) {
+    payload.actions = actions;
+  }
+
+  const publishUrl = buildNtfyPublishUrl();
+  console.info("发送ntfy推送:", publishUrl);
+
+  const result = await postJson(publishUrl, payload, getNtfyAuthHeaders());
+  if (result.ok) {
+    console.info("ntfy推送发送成功");
+    return true;
+  }
+  if (result.error) {
+    console.error("ntfy推送请求错误:", result.error);
+  } else {
+    console.error(`ntfy推送失败: ${result.status} - ${result.body}`);
+  }
+  return false;
+}
+
+// 统一推送入口：向所有已启用的渠道并行发送，任一渠道失败不影响其他渠道
+async function notify(title, body, options = {}) {
+  const channels = getEnabledNotificationChannels();
+  if (!channels.length) {
+    console.info("未启用任何推送通知渠道（配置 BARK_KEY 或 NTFY_TOPIC 后生效）");
+    return [];
+  }
+
+  const senders = channels.map((channel) => (channel === "ntfy" ? sendNtfy : sendBark));
+  const settled = await Promise.allSettled(senders.map((send) => send(title, body, options)));
+
+  const results = channels.map((channel, index) => ({
+    channel,
+    ok: settled[index].status === "fulfilled" && settled[index].value === true,
+  }));
+  console.info(
+    "推送通知渠道结果:",
+    results.map((item) => `${item.channel}=${item.ok ? "ok" : "failed"}`).join(", ")
+  );
+  return results;
 }
 
 function quoteShellArg(value) {
@@ -1593,7 +1860,7 @@ async function runMain() {
   let driver;
 
   // 发送脚本启动通知
-  await sendBark("微信读书挑战", "自动阅读脚本开始运行", {
+  await notify("微信读书挑战", "自动阅读脚本开始运行", {
     subtitle: "脚本启动",
     level: "active",
     sound: "beginning"
@@ -1823,7 +2090,7 @@ async function runMain() {
           }
         );
       }
-      await sendBark("微信读书挑战", "登录失败", {
+      await notify("微信读书挑战", "登录失败", {
         subtitle: "项目停滞",
         level: "critical",
         sound: "alarm"
@@ -1905,7 +2172,7 @@ async function runMain() {
         getScreenshotPath(),
       ]);
     }
-    await sendBark("微信读书挑战", "登录成功", {
+    await notify("微信读书挑战", "登录成功", {
       subtitle: "项目启动",
       level: "active",
       sound: "birdsong"
@@ -2075,7 +2342,7 @@ async function runMain() {
         getScreenshotPath(),
       ]);
     }
-    await sendBark("微信读书挑战", `阅读完成，持续时间：${WEREAD_DURATION}分钟`, {
+    await notify("微信读书挑战", `阅读完成，持续时间：${WEREAD_DURATION}分钟`, {
       subtitle: "项目完成",
       level: "active",
       sound: "success"
@@ -2095,7 +2362,7 @@ async function runMain() {
     if (ENABLE_EMAIL) {
       await sendMail("[项目进展--项目停滞]", "Error occurred: " + errorMessage);
     }
-    await sendBark("微信读书挑战", `发生错误：${errorMessage.substring(0, 100)}${errorMessage.length > 100 ? '...' : ''}`, {
+    await notify("微信读书挑战", `发生错误：${errorMessage.substring(0, 100)}${errorMessage.length > 100 ? '...' : ''}`, {
       subtitle: "项目停滞",
       level: "critical",
       sound: "alarm"
@@ -2133,6 +2400,13 @@ function getRuntimeConfigSnapshot() {
     EMAIL_PORT,
     BARK_KEY,
     BARK_SERVER,
+    NTFY_TOPIC,
+    NTFY_SERVER,
+    NTFY_TOKEN,
+    NTFY_USERNAME,
+    NTFY_PASSWORD,
+    NTFY_PRIORITY,
+    NTFY_TAGS,
     WEREAD_DATA_DIR,
     DEFAULT_BOOK_URL,
     EMAIL_SMTP: process.env.EMAIL_SMTP || "",
@@ -2149,6 +2423,9 @@ module.exports = {
   getRuntimeConfigSnapshot,
   parseCliArgs,
   setRuntimeConfigFromEnv,
+  notify,
+  sendBark,
+  sendNtfy,
 };
 
 if (require.main === module) {

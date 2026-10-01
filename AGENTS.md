@@ -27,7 +27,7 @@
 - Pull Request 描述需包含：背景、变更要点、运行命令、环境变量配置、截图或 `data/output.log` 片段；若关联 issue 请在描述结尾附 `Closes #id`。
 
 ## 配置与安全提示
-- 所有敏感凭据通过环境变量传递，严禁在仓库中硬编码邮箱密码、Bark key；推荐使用 `.env.local` 并加入 `.gitignore`。
+- 所有敏感凭据通过环境变量传递，严禁在仓库中硬编码邮箱密码、Bark key、ntfy topic/token；推荐使用 `.env.local` 并加入 `.gitignore`。
 - 默认 `WEREAD_AGREE_TERMS=true`；若扩展统计字段，需在 PR 中说明 opt-out 流程并更新 README。
 - 部署 Docker 方案时确认宿主机具备 `--shm-size 2gb` 以避免 Chrome crash；远程运行后及时清理 `data/login.png` 并轮换 cookies。
 - 维护 `cron` 任务时可用 `docker run --rm` 方案，将 `-v $HOME/weread-challenge/<user>/data:/app/data` 挂载到宿主机，确保多账户日志与二维码清晰分层。

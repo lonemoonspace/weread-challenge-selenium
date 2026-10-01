@@ -65,7 +65,8 @@ docker compose up -d
 - 支持定时任务
 - 支持设置阅读时间
 - 支持邮件通知
-- 支持 Bark 推送通知
+- 支持 Bark 推送通知（iOS）
+- 支持 ntfy 推送通知（Android / iOS / 桌面）
 - 多平台支持: `linux | windows | macos`
 - 支持架构: `arm64`
 - 支持浏览器: `chrome | MicrosoftEdge | firefox | safari`
@@ -373,11 +374,88 @@ weread-selenium-cli run
 
 Docker 运行同 Linux.
 
-## Bark推送
+## 推送通知
+
+脚本支持两种推送渠道，可以只用一个，也可以同时开启：
+
+| 渠道 | 适用平台 | 启用方式 |
+| --- | --- | --- |
+| ntfy | Android / iOS / 桌面（**Android 推荐**） | 设置 `NTFY_TOPIC` |
+| Bark | iOS | 设置 `BARK_KEY` |
+
+推送统一走通知层：配置了几个渠道就并发推送到几个渠道，单个渠道失败不会影响其他渠道，也不会中断阅读流程。
+
+### ntfy 推送（Android 推荐）
+
+[ntfy](https://ntfy.sh) 是开源的推送服务，Android 端有官方 App，无需注册即可使用公共服务器 `https://ntfy.sh`，也可以自建服务。
+
+1. 在 Android 手机安装 ntfy App（F-Droid / Google Play 搜索 `ntfy`）
+2. 取一个不易被猜到的主题名（topic 等价于密码，只允许字母、数字、`_`、`-`，长度不超过 64），例如 `weread-yourname-a8f3k`
+3. 在 App 中点击 `+` 订阅该主题
+4. 设置环境变量 `NTFY_TOPIC` 为该主题名
+
+**简化配置**：只需设置 `NTFY_TOPIC` 即可启用 ntfy 推送，无需额外启用开关。
+
+```bash
+export NTFY_TOPIC="weread-yourname-a8f3k"
+npx weread-selenium-cli run
+```
+
+可选配置：
+
+- `NTFY_SERVER`：自建 ntfy 服务地址，默认 `https://ntfy.sh`
+- `NTFY_TOKEN`：ntfy Access Token；或改用 `NTFY_USERNAME` + `NTFY_PASSWORD` 走 Basic Auth
+- `NTFY_PRIORITY`：覆盖默认优先级，取值 `1-5` 或 `min|low|default|high|urgent`
+- `NTFY_TAGS`：覆盖默认标签，逗号分隔，例如 `book,heavy_check_mark`
+
+默认映射关系：
+
+| 事件 | Bark level | ntfy 优先级 | 默认 ntfy 标签 |
+| --- | --- | --- | --- |
+| 脚本启动 / 登录成功 / 阅读完成 | `active` | `default`（3） | `rocket` / `bell` / `tada` |
+| 登录失败 / 运行报错 | `critical` | `urgent`（5） | `rotating_light` |
+| 检测到登录二维码 | `active` | `default`（3） | `bell` |
+
+登录二维码推送时，ntfy 通知会带上「打开登录链接」和「查看二维码」两个按钮，点击通知本身也会直接打开登录链接。
+
+#### 使用自建 ntfy 服务器
+
+自建服务器只需要把地址填进 `NTFY_SERVER`（**只填站点根地址，不要带主题名，也不要带末尾斜杠**）：
+
+```bash
+export NTFY_SERVER="https://ntfy.example.com"
+export NTFY_TOPIC="weread-yourname-a8f3k"
+npx weread-selenium-cli run
+```
+
+前提条件与常见坑：
+
+- 自建服务必须能通过 HTTPS 访问，且证书有效；自签证书会因 Node 默认校验证书而报 `unable to verify the issuer`，请用 Let's Encrypt 等受信任证书
+- 若反向代理把 ntfy 挂在子路径（如 `https://example.com/ntfy`），`NTFY_SERVER` 需带上该子路径
+- 若服务端开启了鉴权（`auth-default-access` 为 `deny-all` 等），需要同时配置 `NTFY_TOKEN`，或 `NTFY_USERNAME` + `NTFY_PASSWORD`
+- 主题名不能与 ntfy 保留路径重名（`docs`、`static`、`file`、`app`、`metrics`、`account`、`settings`、`signup`、`login`、`v1`）
+- 未开启鉴权的服务器对公网开放：主题名等价于密码，务必使用随机后缀，避免被他人猜中订阅或投递
+- Android App 需先添加自建服务器：设置 → `Manage users` → 添加服务器地址并登录（若需要），再订阅 `NTFY_TOPIC` 对应的主题
+
+连通性自查：
+
+```bash
+# 1. 服务端健康检查
+curl -s https://ntfy.example.com/v1/health
+
+# 2. 用 curl 直接投递一条测试消息，手机上应立即收到
+curl -d "测试消息" https://ntfy.example.com/weread-yourname-a8f3k
+
+# 3. 用本项目真实的推送链路测试（不启动浏览器）
+NTFY_SERVER=https://ntfy.example.com NTFY_TOPIC=weread-yourname-a8f3k \
+  node -e "require('./src/weread-challenge.js').notify('微信读书挑战','ntfy 连通性测试',{subtitle:'连通测试',sound:'success'})"
+```
+
+### Bark 推送（iOS）
 
 Bark 是一个 iOS 设备上的推送服务，可以通过简单的 HTTP 请求向 iPhone 发送通知。本工具支持通过 Bark 推送运行状态和结果。
 
-### 配置 Bark
+#### 配置 Bark
 
 1. 在 iPhone 上下载并安装 Bark App
 2. 打开 Bark App，获取推送密钥（通常是设备码）
@@ -391,6 +469,7 @@ Bark 是一个 iOS 设备上的推送服务，可以通过简单的 HTTP 请求�
 #### 直接运行（Linux/MacOS/Windows）
 
 ```bash
+export NTFY_TOPIC="weread-yourname-a8f3k"
 export BARK_KEY="your-bark-key-here"
 npx weread-selenium-cli run
 ```
@@ -402,6 +481,7 @@ docker run --rm --name user-read \
   -v $HOME/weread-challenge/user/.weread:/app/.weread \
   -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 \
   -e WEREAD_DURATION=180 \
+  -e NTFY_TOPIC="weread-yourname-a8f3k" \
   -e BARK_KEY="your-bark-key-here" \
   docker.io/lonemoonspace/weread-challenge:latest
 ```
@@ -409,21 +489,26 @@ docker run --rm --name user-read \
 #### Crontab 定时任务示例
 
 ```bash
-# Bark推送示例
+# ntfy 推送示例（Android）
+00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e NTFY_TOPIC=weread-yourname-a8f3k docker.io/lonemoonspace/weread-challenge:latest
+
+# Bark 推送示例（iOS）
 00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e BARK_KEY=your-bark-key-here docker.io/lonemoonspace/weread-challenge:latest
 ```
 
 ### 注意事项
 
 - Bark 推送依赖 iOS 设备上的 Bark App，请确保设备已安装并配置正确
-- 只需设置 `BARK_KEY` 即可启用 Bark 推送，无需额外开关
-- 支持自定义 Bark 服务器，通过设置 `BARK_SERVER` 环境变量
-- 当脚本检测到微信读书登录二维码并解析出登录链接时，会通过 Bark 推送链接（点击即可打开）
+- ntfy 推送依赖 ntfy App 订阅了 `NTFY_TOPIC` 对应的主题；公共服务器上主题名等于密码，请使用随机后缀
+- 只需设置 `NTFY_TOPIC` 或 `BARK_KEY` 即可启用对应渠道，无需额外开关
+- 支持自定义服务器：ntfy 使用 `NTFY_SERVER`，Bark 使用 `BARK_SERVER`
+- 当脚本检测到微信读书登录二维码并解析出登录链接时，会通过已启用的推送渠道发送链接（点击即可打开）
 
-## 登录链接推送配置（Bark + 邮件）
+## 登录链接推送配置（Bark + ntfy + 邮件）
 
 脚本在检测到新的微信读书登录链接后，会自动推送：
 
+- ntfy：配置 `NTFY_TOPIC` 即可启用（Android 推荐）
 - Bark：配置 `BARK_KEY` 即可启用
 - 邮件：`ENABLE_EMAIL=true` 且配置完整 SMTP 参数后启用
 
@@ -442,6 +527,7 @@ environment:
   - EMAIL_PASS=your-app-password
   - EMAIL_PORT=587
   - EMAIL_TO=your-receiver@example.com
+  - NTFY_TOPIC=weread-yourname-a8f3k
   - BARK_KEY=your-bark-key
   - DEFAULT_BOOK_URL=https://weread.qq.com/web/reader/276323e0813ab90a5g0144d7
 ```
@@ -509,8 +595,15 @@ mkdir -p $HOME/weread-challenge/$WEREAD_USER2/.weread
 | `EMAIL_PASS`            | ""                                                        | -                                     | 邮箱密码                                                                                        |
 | `EMAIL_FROM`            | ""                                                        | -                                     | 发件人                                                                                          |
 | `EMAIL_TO`              | ""                                                        | -                                     | 收件人                                                                                          |
-| `BARK_KEY`              | ""                                                        | -                                     | Bark 推送密钥                                                                                   |
+| `BARK_KEY`              | ""                                                        | -                                     | Bark 推送密钥（iOS）                                                                            |
 | `BARK_SERVER`           | `https://api.day.app`                                     | -                                     | Bark 服务器地址                                                                                 |
+| `NTFY_TOPIC`            | ""                                                        | -                                     | ntfy 主题（等价于密码），配置后启用 ntfy 推送                                                    |
+| `NTFY_SERVER`           | `https://ntfy.sh`                                         | -                                     | ntfy 服务器地址，自建服务时填写                                                                  |
+| `NTFY_TOKEN`            | ""                                                        | -                                     | ntfy Access Token，与用户名密码二选一                                                            |
+| `NTFY_USERNAME`         | ""                                                        | -                                     | ntfy Basic Auth 用户名                                                                          |
+| `NTFY_PASSWORD`         | ""                                                        | -                                     | ntfy Basic Auth 密码                                                                            |
+| `NTFY_PRIORITY`         | ""                                                        | `1-5,min,low,default,high,urgent`     | 覆盖 ntfy 默认优先级映射                                                                        |
+| `NTFY_TAGS`             | ""                                                        | -                                     | 覆盖 ntfy 默认标签，逗号分隔                                                                     |
 | `WEREAD_AGREE_TERMS`    | `true`                                                    | `true,false`                          | 隐私同意条款                                                                                    |
 
 ## 容器架构支持

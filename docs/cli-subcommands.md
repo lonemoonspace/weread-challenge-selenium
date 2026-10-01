@@ -4,7 +4,7 @@
 
 | 子命令 | 职责 | 输入 | 输出 | 依赖 | 关键约束 |
 | --- | --- | --- | --- | --- | --- |
-| `run` | 执行现有自动阅读主流程 | 环境变量 | 控制台日志、截图、邮件、Bark | `selenium-webdriver`、邮件/Bark 配置 | 保持现有主流程行为 |
+| `run` | 执行现有自动阅读主流程 | 环境变量 | 控制台日志、截图、邮件、Bark、ntfy | `selenium-webdriver`、邮件/Bark/ntfy 配置 | 保持现有主流程行为 |
 | `schedule` | 生成周期性计划任务命令 | `--name` `--every` `--workdir` `--platform` `--weread-duration` `--dry-run` | 创建命令、验证命令、回滚命令、权限提示 | `schtasks` / `launchctl` / `systemd --user` | 仅支持向 `run` 追加 `--weread-duration`；`--workdir` 可选，默认当前用户 `HOME` |
 | `help` / `-h` / `--help` | 输出 CLI 帮助 | 可选子命令名 | 帮助文本 | 无 | 不触发主流程 |
 
@@ -56,7 +56,10 @@ flowchart TD
 | `--weread-remote-browser` | `WEREAD_REMOTE_BROWSER` | 远程 Selenium 地址 |
 | `--enable-email` | `ENABLE_EMAIL` | 邮件通知开关 |
 | `--email-smtp` 等邮件参数 | `EMAIL_*` | SMTP 主机、账号、密码、发件人与收件人 |
-| `--bark-key` / `--bark-server` | `BARK_*` | Bark 推送配置 |
+| `--bark-key` / `--bark-server` | `BARK_*` | Bark 推送配置（iOS） |
+| `--ntfy-topic` / `--ntfy-server` | `NTFY_TOPIC` / `NTFY_SERVER` | ntfy 推送配置（Android 推荐） |
+| `--ntfy-token` / `--ntfy-username` / `--ntfy-password` | `NTFY_TOKEN` / `NTFY_USERNAME` / `NTFY_PASSWORD` | ntfy 认证配置，Token 与用户名密码二选一 |
+| `--ntfy-priority` / `--ntfy-tags` | `NTFY_PRIORITY` / `NTFY_TAGS` | 覆盖 ntfy 默认优先级与标签 |
 | `--weread-data-dir` | `WEREAD_DATA_DIR` | 数据目录；未显式配置时按 `.weread` -> `data` -> 新建 `.weread` 的顺序解析 |
 
 `run` 同时接受 kebab-case 参数和原始环境变量名参数，例如 `--weread-browser firefox` 与 `--WEREAD_BROWSER firefox` 等价。
