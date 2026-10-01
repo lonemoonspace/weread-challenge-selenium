@@ -8,7 +8,9 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const PACKAGE_JSON_PATH = path.join(ROOT_DIR, 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'));
 
-const DEFAULT_PUSH_PLATFORMS = 'linux/amd64,linux/arm64';
+// Only linux/arm64 is published: this fork targets ARM64 boards (Raspberry Pi and
+// similar). amd64 is deliberately not built, so a release cannot reintroduce it.
+const DEFAULT_PUSH_PLATFORM = 'linux/arm64';
 
 function printHelp() {
   console.log(`Usage:
@@ -22,13 +24,13 @@ Commands:
 
 Options:
   --image <name>            Target image name
-                            default: docker.io/jqknono/weread-challenge
+                            default: docker.io/lonemoonspace/weread-challenge
   --tag <tag>               Primary tag
                             default: package.json version (${packageJson.version})
   --extra-tags <list>       Extra tags separated by commas
   --platform <platform>     Comma separated target platforms
                             default for build: host platform
-                            default for push: ${DEFAULT_PUSH_PLATFORMS}
+                            default for push: ${DEFAULT_PUSH_PLATFORM}
   --dockerfile <path>       Dockerfile path
                             default: Dockerfile
   --context <path>          Docker build context
@@ -43,10 +45,12 @@ Examples:
   npm run docker:image:push:dev
 
 Notes:
-  Both commands go through docker buildx. push builds and pushes every tag in a
-  single invocation, so "${DEFAULT_PUSH_PLATFORMS}" produces one multi-arch
-  manifest list instead of two single-platform images that overwrite each other.
-  build uses --load, which only supports a single platform.`);
+  Only linux/arm64 is published: push defaults to "${DEFAULT_PUSH_PLATFORM}", so a
+  release cannot quietly reintroduce another architecture or downgrade the
+  published tags. Both commands go through docker buildx, and push builds and
+  pushes every tag in a single invocation. build uses --load, which only supports
+  a single platform. Building arm64 on an amd64 host needs QEMU/binfmt
+  emulation; on ARM64 hardware or GitHub Actions it works out of the box.`);
 }
 
 function fail(message) {
@@ -110,7 +114,7 @@ function parsePlatforms(value) {
 }
 
 function resolveConfig(command, rawOptions) {
-  const image = rawOptions.image || process.env.DOCKER_IMAGE || 'docker.io/jqknono/weread-challenge';
+  const image = rawOptions.image || process.env.DOCKER_IMAGE || 'docker.io/lonemoonspace/weread-challenge';
   const tag = rawOptions.tag || process.env.DOCKER_TAG || packageJson.version;
   const extraTags = uniqueTags(
     (rawOptions['extra-tags'] || process.env.DOCKER_EXTRA_TAGS || '')
@@ -120,9 +124,10 @@ function resolveConfig(command, rawOptions) {
   );
   const dockerfile = path.resolve(ROOT_DIR, rawOptions.dockerfile || process.env.DOCKERFILE || 'Dockerfile');
   const context = path.resolve(ROOT_DIR, rawOptions.context || process.env.DOCKER_CONTEXT || '.');
-  // push defaults to both architectures so a release never silently downgrades a
-  // multi-arch tag to a single-platform image; build stays on the host platform.
-  const defaultPlatform = command === 'push' ? DEFAULT_PUSH_PLATFORMS : '';
+  // Only linux/arm64 is published. `check` reports the same default as `push` so
+  // the validated configuration matches what a release would actually do; `build`
+  // stays on the host platform so a local build needs no emulation.
+  const defaultPlatform = command === 'build' ? '' : DEFAULT_PUSH_PLATFORM;
   const platform = rawOptions.platform || process.env.DOCKER_PLATFORM || defaultPlatform;
 
   if (!image) {
@@ -145,7 +150,7 @@ function resolveConfig(command, rawOptions) {
     dockerfile,
     context,
     platform,
-    platforms: parsePlatforms(platform)
+    platforms: [...new Set(parsePlatforms(platform))]
   };
 }
 
@@ -179,15 +184,18 @@ function ensureBuildxAvailable() {
 
 function buildxCommandArgs(config) {
   const args = ['buildx', 'build'];
-  if (config.platform) {
-    args.push('--platform', config.platform);
+  // Forward the normalised list: buildx splits on "," without trimming and
+  // containerd rejects whitespace, so an untouched "linux/arm64, linux/amd64"
+  // would only fail once it is inside buildx.
+  if (config.platforms.length > 0) {
+    args.push('--platform', config.platforms.join(','));
   }
   args.push('-f', config.dockerfile);
   config.buildTags.forEach((tag) => {
     args.push('-t', `${config.image}:${tag}`);
   });
-  // A single buildx invocation pushes every tag as one manifest list; pushing
-  // tags one by one would publish separate single-platform images.
+  // Every tag is published from this one invocation, so all tags always carry
+  // the same image rather than being pushed separately.
   args.push(config.command === 'push' ? '--push' : '--load');
   args.push(config.context);
   return args;
@@ -202,7 +210,7 @@ function printConfig(config) {
   console.log(`push tags: ${config.pushTags.length ? config.pushTags.join(', ') : '(none)'}`);
   console.log(`dockerfile: ${config.dockerfile}`);
   console.log(`context: ${config.context}`);
-  console.log(`platform: ${config.platform || '(host default)'}`);
+  console.log(`platform: ${config.platforms.length ? config.platforms.join(',') : '(host default)'}`);
 }
 
 function resolvePushTags(config) {
@@ -249,7 +257,11 @@ function main() {
   }
 
   ensureDockerAvailable();
-  ensureBuildxAvailable();
+  // `check` only validates the resolved configuration and never builds, so it
+  // must not start failing on Docker installs that lack the buildx plugin.
+  if (command !== 'check') {
+    ensureBuildxAvailable();
+  }
   printConfig(config);
 
   if (command === 'check') {
