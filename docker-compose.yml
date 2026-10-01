@@ -1,6 +1,6 @@
 services:
   app:
-    image: jqknono/weread-challenge:latest
+    image: lonemoonspace/weread-challenge:latest
     pull_policy: always
     environment:
       - WEREAD_REMOTE_BROWSER=http://selenium:4444
