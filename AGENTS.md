@@ -17,7 +17,7 @@
 - 日志通过 `console.info|warn|error` 输出，文件句柄在顶部集中创建；新增监控点时复用 `redirectConsole` 逻辑，避免重复实现。
 
 ## 测试指南
-- 目前不存在自动化单测，验证依赖真实浏览器运行；提交前至少执行一次 `npm run start` 或 `docker compose up -d`，确认登录、翻页、统计上报链路。
+- 目前不存在自动化单测，验证依赖真实浏览器运行；提交前至少执行一次 `npm run start` 或 `docker compose up -d`，确认登录、翻页链路；如改动统计上报，再以 `WEREAD_AGREE_TERMS=true` 验证一次。
 - 建议新增 `tests/` 目录，用 `selenium-webdriver` 编写 smoke case（命名示例：`tests/login-smoke.spec.js`），覆盖登录二维码刷新、章节跳转、通知推送开关。
 - 若引入断言库，可选 `assert` 内置模块或 `mocha`，并在 README-dev.md 追加用法；同时为每个 case 描述期望阅读时长与触发条件。
 
@@ -28,6 +28,6 @@
 
 ## 配置与安全提示
 - 所有敏感凭据通过环境变量传递，严禁在仓库中硬编码邮箱密码、Bark key、ntfy topic/token；推荐使用 `.env.local` 并加入 `.gitignore`。
-- 默认 `WEREAD_AGREE_TERMS=true`；若扩展统计字段，需在 PR 中说明 opt-out 流程并更新 README。
+- 默认 `WEREAD_AGREE_TERMS=false`（统计上报需显式开启，数据发往上游 `weread-challenge.techfetch.dev`）；若扩展统计字段，需在 PR 中说明并同步更新 README 隐私政策。
 - 部署 Docker 方案时确认宿主机具备 `--shm-size 2gb` 以避免 Chrome crash；远程运行后及时清理 `data/login.png` 并轮换 cookies。
 - 维护 `cron` 任务时可用 `docker run --rm` 方案，将 `-v $HOME/weread-challenge/<user>/data:/app/data` 挂载到宿主机，确保多账户日志与二维码清晰分层。

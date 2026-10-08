@@ -49,7 +49,7 @@ let WEREAD_SELECTION = 2; // Selection method
 let WEREAD_BROWSER = Browser.CHROME; // Browser to use, chrome | MicrosoftEdge | firefox
 let ENABLE_EMAIL = false; // Enable email notifications
 let WEREAD_SCREENSHOT = true; // Reading期间是否每分钟截图
-let WEREAD_AGREE_TERMS = true; // Agree to terms
+let WEREAD_AGREE_TERMS = false; // 使用统计上报，默认关闭，需显式开启
 let EMAIL_PORT = 465; // SMTP port number, default 465
 let BARK_KEY = ""; // Bark推送密钥（iOS）
 let BARK_SERVER = "https://api.day.app"; // Bark服务器地址
@@ -96,7 +96,7 @@ const RUN_OPTION_SPECS = [
   { envKey: "WEREAD_BROWSER", flag: "weread-browser", type: "string", description: "Browser name: chrome | MicrosoftEdge | firefox | safari." },
   { envKey: "ENABLE_EMAIL", flag: "enable-email", type: "boolean", description: "Enable email notifications." },
   { envKey: "WEREAD_SCREENSHOT", flag: "weread-screenshot", type: "boolean", description: "Capture screenshots while reading." },
-  { envKey: "WEREAD_AGREE_TERMS", flag: "weread-agree-terms", type: "boolean", description: "Enable usage telemetry upload." },
+  { envKey: "WEREAD_AGREE_TERMS", flag: "weread-agree-terms", type: "boolean", description: "Enable usage telemetry upload to the upstream stats server (default: false)." },
   { envKey: "EMAIL_SMTP", flag: "email-smtp", type: "string", description: "SMTP server host." },
   { envKey: "EMAIL_USER", flag: "email-user", type: "string", description: "SMTP username." },
   { envKey: "EMAIL_PASS", flag: "email-pass", type: "string", description: "SMTP password." },
@@ -180,9 +180,7 @@ function setRuntimeConfigFromEnv(env = process.env) {
   WEREAD_SCREENSHOT = env.WEREAD_SCREENSHOT === undefined
     ? true
     : parseBooleanValue(env.WEREAD_SCREENSHOT, true, false);
-  WEREAD_AGREE_TERMS = env.WEREAD_AGREE_TERMS === undefined
-    ? true
-    : parseBooleanValue(env.WEREAD_AGREE_TERMS, true, false);
+  WEREAD_AGREE_TERMS = parseBooleanValue(env.WEREAD_AGREE_TERMS, false, false);
   EMAIL_PORT = env.EMAIL_PORT === undefined
     ? 465
     : parseIntegerValue(env.EMAIL_PORT, "email-port");
