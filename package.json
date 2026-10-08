@@ -1,6 +1,7 @@
 {
   "name": "weread-selenium-cli",
   "version": "0.19.1",
+  "private": true,
   "description": "Selenium automation tool for WeRead challenge",
   "main": "src/weread-challenge.js",
   "bin": {
@@ -13,6 +14,10 @@
     "README-dev.md"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lonemoonspace/weread-challenge-selenium.git"
+  },
   "scripts": {
     "start": "WEREAD_SELECTION=-1 WEREAD_REMOTE_BROWSER=http://172.23.0.2:4444 node src/weread-challenge.js run",
     "dev": "WEREAD_REMOTE_BROWSER= node src/weread-challenge.js run",
@@ -27,10 +32,7 @@
     "docker:image:check": "node scripts/docker-image.js check",
     "docker:image:build": "node scripts/docker-image.js build",
     "docker:image:push": "node scripts/docker-image.js push",
-    "docker:image:push:dev": "node scripts/docker-image.js push --tag dev",
-    "publish:npm:check": "node -e \"const p=require('./package.json');const miss=['name','version'].filter(k=>!p[k]);if(miss.length){console.error('缺少字段: '+miss.join(','));process.exit(1);}if(!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$/.test(p.version)){console.error('version 不是有效 semver: '+p.version);process.exit(1);}console.log('发布校验通过: '+p.name+'@'+p.version);\"",
-    "publish:npm:dry-run": "npm run publish:npm:check && npm publish --access public --dry-run",
-    "publish:npm": "npm run publish:npm:check && npm publish --access public"
+    "docker:image:push:dev": "node scripts/docker-image.js push --tag dev"
   },
   "dependencies": {
     "jsqr": "^1.4.0",
