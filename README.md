@@ -72,7 +72,7 @@ docker compose up -d
 - 支持浏览器: `chrome | MicrosoftEdge | firefox | safari`
 - 支持多用户
 - 异常时强制刷新
-- 使用统计
+- 可选的使用统计上报（默认关闭）
 
 ## CLI 子命令
 
@@ -81,6 +81,9 @@ docker compose up -d
 | `run` | 执行微信读书自动阅读主流程 | 沿用现有环境变量 |
 | `schedule` | 生成计划任务命令，支持 `windows` / `macos` / `linux` | `--name` `--every` `--workdir` `--weread-duration` |
 | `help` / `-h` / `--help` | 显示帮助 | 可跟 `run` / `schedule` |
+
+> npm 上的 `weread-selenium-cli` 由上游作者发布，本分支不发布 npm 包。`npx` / `npm install -g`
+> 安装的是上游版本；想运行本分支代码，请克隆本仓库后执行 `npm install && npm link`，或使用 Docker 镜像。
 
 ```bash
 # 查看总帮助
@@ -177,8 +180,6 @@ services:
     image: selenium/standalone-chromium:latest
     pull_policy: if_not_present
     shm_size: 2gb
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - SE_ENABLE_TRACING=false
       - SE_BIND_HOST=false
@@ -209,7 +210,6 @@ docker network create weread-challenge-net
 
 # 启动 Selenium 服务
 docker run --restart always -d --name selenium-live \
-  -v /var/run/docker.sock:/var/run/docker.sock \
   --shm-size="2g" \
   --network weread-challenge-net \
   --hostname selenium-live \
@@ -273,8 +273,6 @@ services:
     image: selenium/standalone-chromium:latest
     pull_policy: if_not_present
     shm_size: 2gb
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - SE_ENABLE_TRACING=false
       - SE_BIND_HOST=false
@@ -300,7 +298,6 @@ docker network create weread-challenge-net
 docker run --restart always -d --name selenium-live \
   --network weread-challenge-net \
   --hostname selenium-live \
-  -v /var/run/docker.sock:/var/run/docker.sock \
   --shm-size="2g" \
   -p 4444:4444 \
   -p 7900:7900 \
@@ -324,9 +321,9 @@ mkdir -p $HOME/weread-challenge/$WEREAD_USER/.weread
 crontab 示例：
 
 ```bash
-00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user1@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=weread-challege@outlook.com docker.io/lonemoonspace/weread-challenge:latest
+00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user1@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=you@example.com docker.io/lonemoonspace/weread-challenge:latest
 
-00 01 * * * docker run --rm --name user2-read -v /home/test/weread-challenge/user2/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user2 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user2@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=weread-challege@outlook.com docker.io/lonemoonspace/weread-challenge:latest
+00 01 * * * docker run --rm --name user2-read -v /home/test/weread-challenge/user2/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user2 -e WEREAD_SELECTION=2 -e ENABLE_EMAIL=true -e EMAIL_SMTP=smtp.mail.me.com -e EMAIL_USER=user2@icloud.com -e EMAIL_PASS=aaaa-bbbb-cccc-dddd -e EMAIL_PORT=587 -e EMAIL_TO=you@example.com docker.io/lonemoonspace/weread-challenge:latest
 
 00 01 * * * docker run --rm --name user1-read -v /home/test/weread-challenge/user1/.weread:/app/.weread --network weread-challenge-net -e WEREAD_REMOTE_BROWSER=http://selenium-live:4444 -e WEREAD_DURATION=180 -e WEREAD_USER=user1 -e WEREAD_SELECTION=2 -e BARK_KEY=your-bark-key-here docker.io/lonemoonspace/weread-challenge:latest
 ```
@@ -551,7 +548,6 @@ docker network create weread-challenge-net
 
 # 启动浏览器服务
 docker run --restart always -d --name selenium-live \
-  -v /var/run/docker.sock:/var/run/docker.sock \
   --shm-size="2g" \
   --network weread-challenge-net \
   --hostname selenium-live \
@@ -609,7 +605,7 @@ mkdir -p $HOME/weread-challenge/$WEREAD_USER2/.weread
 | `NTFY_PASSWORD`         | ""                                                        | -                                     | ntfy Basic Auth 密码                                                                            |
 | `NTFY_PRIORITY`         | ""                                                        | `1-5,min,low,default,high,urgent`     | 覆盖 ntfy 默认优先级映射，发送前统一归一化为 1-5 数字                                           |
 | `NTFY_TAGS`             | ""                                                        | -                                     | 覆盖 ntfy 默认标签，逗号分隔                                                                     |
-| `WEREAD_AGREE_TERMS`    | `true`                                                    | `true,false`                          | 隐私同意条款                                                                                    |
+| `WEREAD_AGREE_TERMS`    | `false`                                                   | `true,false`                          | 是否向上游统计服务上报使用信息，见[隐私政策](#隐私政策)                                          |
 
 ## 容器架构支持
 
@@ -641,23 +637,23 @@ docker buildx build --platform linux/arm64 -t docker.io/lonemoonspace/weread-cha
 - **登录有效期**：网页扫码登录 cookies 有效期为 30 天，实测登录一次可以长期有效
 - **邮件通知**：邮件通知可能被识别为垃圾邮件，建议在收件方添加白名单
 - **使用声明**：本项目仅供学习交流使用，请勿用于商业用途，请勿用于违法用途
-- **侵权处理**：如存在可能的侵权，请联系 `weread-challenge@techfetch.dev`，本项目会立即删除
+- **侵权处理**：如存在可能的侵权，请在本仓库 [提交 issue](https://github.com/lonemoonspace/weread-challenge-selenium/issues) 联系，本分支会立即删除
 
 ## 隐私政策
 
-- **隐私获取**
-  - 本项目搜集使用者的 `cookies` 部分信息，以用于使用者统计和展示
-  - 搜集使用者的使用信息，包含：`用户名称 | 首次使用时间 | 最近使用时间 | 总使用次数 | 浏览器类型 | 操作系统类别 | 阅读时长设置 | 异常退出原因`
-  - 如不希望被搜集任何信息，可设置启动参数 `WEREAD_AGREE_TERMS=false`
+- **默认不上报**：本分支默认 `WEREAD_AGREE_TERMS=false`，不会向任何统计服务发送数据；本分支维护者不收集任何使用者信息
+- **可选上报**：设置 `WEREAD_AGREE_TERMS=true` 后，登录成功和异常退出时会向**上游作者**的统计服务 `https://weread-challenge.techfetch.dev/logs` 上报以下信息，该服务与本分支无关：
+  - 微信读书 `cookies` 中的部分字段：`wr_vid`、`wr_name`、`wr_avatar`、`wr_gender`、`wr_gid`、`wr_localvid`、`wr_rt`
+  - 运行信息：浏览器类型、操作系统类别、阅读时长设置、是否启用邮件、版本号、异常退出原因
 - **风险提示**
-  - `cookies` 可用于微信读书网页登录，登录后可以执行书架操作，但**本工具不会使用搜集的信息进行登录操作**
+  - `cookies` 可用于微信读书网页登录，开启上报前请确认你信任接收方
   - 腾讯保护机制确保异常登录时，手机客户端将收到风险提示，可在手机客户端 `设置` -> `登录设备` 中确认登录设备
   - 本工具纯 JavaScript 实现，第三方可以继续开发。即使信任本工具，也应在使用自动化工具时，经常确认登录设备，避免书架被恶意操作
 
 ## 参考
 
-- npm 包: [weread-selenium-cli](https://www.npmjs.com/package/weread-selenium-cli)
+- npm 包（上游发布，非本分支）: [weread-selenium-cli](https://www.npmjs.com/package/weread-selenium-cli)
 - 上游开源地址: [https://github.com/jqknono/weread-challenge-selenium](https://github.com/jqknono/weread-challenge-selenium)
 - 本分支(arm64): [https://github.com/lonemoonspace/weread-challenge-selenium](https://github.com/lonemoonspace/weread-challenge-selenium)
-- 统计: [https://weread-challenge.techfetch.dev](https://weread-challenge.techfetch.dev)
-- 文章来源: [https://blog.techfetch.dev](https://blog.techfetch.dev/blog/2024/12/05/%E5%BE%AE%E4%BF%A1%E8%AF%BB%E4%B9%A6%E8%87%AA%E5%8A%A8%E6%89%93%E5%8D%A1%E5%88%B7%E6%97%B6%E9%95%BF/)
+- 上游统计: [https://weread-challenge.techfetch.dev](https://weread-challenge.techfetch.dev)
+- 上游文章: [https://blog.techfetch.dev](https://blog.techfetch.dev/blog/2024/12/05/%E5%BE%AE%E4%BF%A1%E8%AF%BB%E4%B9%A6%E8%87%AA%E5%8A%A8%E6%89%93%E5%8D%A1%E5%88%B7%E6%97%B6%E9%95%BF/)

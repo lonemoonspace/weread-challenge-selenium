@@ -16,8 +16,6 @@ services:
     image: selenium/standalone-chromium:latest
     pull_policy: if_not_present
     shm_size: 2gb
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - SE_ENABLE_TRACING=false
       - SE_BIND_HOST=false
