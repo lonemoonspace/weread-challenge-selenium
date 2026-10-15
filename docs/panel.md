@@ -216,7 +216,7 @@ sequenceDiagram
 
 | 面板配置 | 默认值 | 说明 |
 | --- | --- | --- |
-| `PANEL_PORT` | `8080` | 监听端口 |
+| `PANEL_PORT` | `26868` | 监听端口；选用不常见端口，避开 8080 / 8000 / 3000 / 9000 等常被占用的端口。默认值固定而非每次随机，反向代理需要稳定的目标端口 |
 | `PANEL_HOST` | `0.0.0.0` | 监听地址（容器内） |
 | `PANEL_BASE_PATH` | `/` | 部署在子路径时设置，例如 `/weread/`；前端全部使用相对路径 |
 | `PANEL_TRUST_PROXY` | `false` | 设为 `true` 后信任 `X-Forwarded-For` / `X-Forwarded-Proto`，用于识别真实 IP 与 HTTPS |
@@ -225,7 +225,8 @@ sequenceDiagram
 
 | 注意事项 | 说明 |
 | --- | --- |
-| 端口映射 | 反向代理与面板在同一主机时映射为 `127.0.0.1:8080:8080`；在同一 Docker 网络时不必映射端口 |
+| 端口映射 | 反向代理与面板在同一主机时映射为 `127.0.0.1:26868:26868`；在同一 Docker 网络时不必映射端口。端口冲突只取决于宿主机一侧，改映射左边的端口即可 |
+| 端口被占用 | 启动时端口被占用直接报错退出，并提示通过 `PANEL_PORT` / `--port` 更换，不自动换用其他端口，避免反向代理指向错误 |
 | SSE | 实时接口响应头带 `Cache-Control: no-cache` 与 `X-Accel-Buffering: no`，每 15 秒发送心跳注释；Nginx 需对该路径设置 `proxy_buffering off` 并加大 `proxy_read_timeout` |
 | 断线重连 | 前端 `EventSource` 自动重连，重连后重新拉取一次完整状态 |
 
@@ -238,7 +239,7 @@ services:
     command: ["node", "app.js", "panel"]
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:26868:26868"
     environment:
       - TZ=Asia/Shanghai
       - WEREAD_REMOTE_BROWSER=http://selenium:4444   # 首次启动导入为全局默认
