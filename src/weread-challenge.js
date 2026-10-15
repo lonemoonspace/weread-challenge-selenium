@@ -2028,6 +2028,7 @@ async function runMain() {
     );
 
     let maxRetries = 3;
+    let loggedIn = false;
     while (maxRetries-- > 0) {
       console.info("Waiting for login...");
       const element = await driver.wait(
@@ -2053,6 +2054,7 @@ async function runMain() {
       // if text contains "我的书架", then login is successful
       if (text.includes("我的书架")) {
         console.info("Login completed.");
+        loggedIn = true;
         break;
       }
 
@@ -2082,7 +2084,7 @@ async function runMain() {
       }
     }
 
-    if (maxRetries <= 0) {
+    if (!loggedIn) {
       console.error("Failed to login.");
       if (ENABLE_EMAIL) {
         const loginFailureAttachments = fs.existsSync(getLoginQrCodePath())
